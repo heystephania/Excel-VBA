@@ -1,0 +1,208 @@
+  
+Option Explicit
+
+Dim FolderPath As String
+
+Private Sub cmdExport_Click()
+    
+    Dim i As Integer, iFrame As Integer, iExportType As Integer
+    Dim fd As Object
+    Dim ctrl As Control
+    
+    With Me
+        
+        If .lstQueue.ListCount = 0 Then
+            MsgBox "There are no worksheets to be exported.", vbInformation
+            Exit Sub
+        End If
+        
+        Set fd = Application.FileDialog(msoFileDialogFolderPicker)
+        With fd
+            .InitialFileName = Environ("UserProfile") & "\"
+            .Title = "Please select a folder where you want to save the files"
+            .Show
+            
+            If .SelectedItems.Count = 0 Then
+                Exit Sub
+            Else
+                FolderPath = .SelectedItems(1)
+            End If
+        End With
+        
+        With .frame_options
+            For iFrame = 0 To .Controls.Count - 1
+                If .Controls(iFrame) = True Then
+                    iExportType = iFrame
+                End If
+            Next iFrame
+            
+        End With
+        
+        If .frame_options("optExcel_xlsx").Value Then
+            iExportType = 0
+        ElseIf .frame_options("optExcel_xls").Value Then
+            iExportType = 1
+        ElseIf .frame_options("optCSV").Value Then
+            iExportType = 2
+        ElseIf .frame_options("optPDF").Value Then
+            iExportType = 3
+        End If
+        
+'            For iFrame = 0 To Controls.Count - 1
+'
+'                 If .Controls(iFrame) = True Then
+'                        iExportType = iFrame
+'                        Exit For
+'                End If
+'            Next iFrame
+'        End With
+            
+        With .lstQueue
+            For i = 0 To .ListCount - 1
+                Call ExportWorksheets(.List(i), iExportType)
+            Next i
+        End With
+            
+    End With
+        
+    MsgBox "Worksheets Export complete.", vbInformation
+    
+End Sub
+
+Private Sub cmdAdd_Click()
+    
+    Dim i As Integer
+    
+    With Me
+        For i = 0 To .lstWorksheets.ListCount - 1
+            If .lstWorksheets.Selected(i) = True Then
+                .lstQueue.AddItem .lstWorksheets.List(i)
+                
+                .lstWorksheets.RemoveItem i
+            End If
+        Next i
+    End With
+    
+End Sub
+
+
+Private Sub cmdAddAll_Click()
+        
+    Dim i  As Integer
+    
+    With Me
+        
+        For i = 0 To .lstWorksheets.ListCount - 1
+            .lstQueue.AddItem .lstWorksheets.List(i)
+        Next i
+        
+        .lstWorksheets.Clear
+    
+    End With
+    
+End Sub
+
+Private Sub cmdRemoveAll_Click()
+    
+    Dim i  As Integer
+    
+    With Me
+        
+        For i = 0 To .lstQueue.ListCount - 1
+            .lstWorksheets.AddItem .lstQueue.List(i)
+        Next i
+        
+        .lstQueue.Clear
+    
+    End With
+    
+End Sub
+
+Private Sub cmdRemove_Click()
+    
+    Dim i As Integer
+    
+    With Me
+        For i = 0 To .lstQueue.ListCount - 1
+            If .lstQueue.Selected(i) = True Then
+                .lstWorksheets.AddItem .lstQueue.List(i)
+                
+                .lstQueue.RemoveItem i
+            End If
+        Next i
+    End With
+    
+End Sub
+
+Private Sub cmdClose_Click()
+        Unload Me
+End Sub
+
+Private Sub UserForm_Initialize()
+    
+    Dim ws As Worksheet
+    
+    With Me
+        
+        .Move Application.Left, Application.Top
+        
+        .optExcel_xlsx = True
+        
+        .lblLine.Width = .Width
+        
+        For Each ws In ActiveWorkbook.Worksheets
+            If ws.Visible = xlSheetVisible Then
+                .lstWorksheets.AddItem ws.Name
+            End If
+        Next ws
+    
+    End With
+    
+End Sub
+
+Private Sub ExportWorksheets(ByVal WorksheetName As String, ByVal Export_Option As Integer)
+
+    On Error GoTo errHandle
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim fileExtension As String
+    Dim fileTypeValue As Integer
+    
+    fileExtension = Choose(Export_Option + 1, ".xlsx", ".xls", ".csv", ".pdf")
+    fileTypeValue = Choose(Export_Option + 1, 51, 56, 6, 999)
+    
+    Set wb = ActiveWorkbook
+    Set ws = wb.Worksheets(WorksheetName)
+    
+    ws.Copy
+    
+    If fileTypeValue <> 999 Then
+    
+        Application.DisplayAlerts = False
+        ActiveWorkbook.SaveAs Filename:=FolderPath & "\" & WorksheetName & fileExtension, FileFormat:=fileTypeValue
+        ActiveWorkbook.Close False
+        Application.DisplayAlerts = True
+        
+    Else:
+            
+            ws.ExportAsFixedFormat _
+                Type:=xlTypePDF, _
+                Filename:=FolderPath & "\" & WorksheetName & fileExtension, _
+                quality:=xlQualityStandard, _
+                includeDocProperties:=True, _
+                ignorePrintAreas:=False, _
+                openafterPublish:=False
+                
+            ActiveWorkbook.Close False
+                
+    End If
+        
+CleanObj:
+    Set ws = Nothing
+    Set wb = Nothing
+Exit Sub
+
+errHandle:
+    MsgBox "Error: " & Err.Description, vbExclamation
+    GoTo CleanObj
+End Sub
